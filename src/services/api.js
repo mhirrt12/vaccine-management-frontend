@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// Get API base URL from environment or use default
-const API_BASE_URL = '/api';   // relative, uses proxy
+// Direct URL to your InfinityFree backend
+const API_BASE_URL = 'https://vaccine-system.infinityfreeapp.com';
+
 // Create axios instance with default config
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -9,50 +10,47 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: 30000,
 });
 
-// Request interceptor to add token to headers
+// Request interceptor: rewrite URL to use ?route= parameter
 api.interceptors.request.use(
   (config) => {
+    // Original URL like '/auth/login' -> remove leading slash
+    let originalUrl = config.url;
+    if (originalUrl.startsWith('/')) {
+      originalUrl = originalUrl.substring(1);
+    }
+    // Build the correct backend URL: /index.php?route=auth/login
+    config.url = `/index.php?route=${originalUrl}`;
+    
+    // Add token if exists
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle common errors
+// Response interceptor (keep as is)
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     const { response } = error;
-    
-    // Handle 401 Unauthorized - token expired or invalid
     if (response && response.status === 401) {
       localStorage.removeItem('token');
-      // Redirect to login page if not already there
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
-    
-    // Handle 403 Forbidden
     if (response && response.status === 403) {
       console.error('Access denied:', response.data?.message);
     }
-    
-    // Handle 500 Server Error
     if (response && response.status >= 500) {
       console.error('Server error:', response.data?.message);
     }
-    
     return Promise.reject(error);
   }
 );
