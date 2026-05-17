@@ -35,24 +35,23 @@ api.interceptors.request.use(
 );
 
 // Response interceptor (keep as is)
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const { response } = error;
-    if (response && response.status === 401) {
-      localStorage.removeItem('token');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+api.interceptors.request.use(
+  (config) => {
+    // Keep the original URL with leading slash (e.g., '/auth/login')
+    let originalUrl = config.url;
+    if (!originalUrl.startsWith('/')) {
+      originalUrl = '/' + originalUrl;
     }
-    if (response && response.status === 403) {
-      console.error('Access denied:', response.data?.message);
+    // Build correct backend URL: /index.php?route=/api/auth/login
+    config.url = `/index.php?route=${originalUrl}`;
+    
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    if (response && response.status >= 500) {
-      console.error('Server error:', response.data?.message);
-    }
-    return Promise.reject(error);
-  }
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 export default api;
